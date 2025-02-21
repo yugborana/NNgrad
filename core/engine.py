@@ -1,6 +1,9 @@
 import numpy as np
 from typing import *
 
+MIN = 1e-6
+MAX = 1 - 1e-6
+
 Array = Union[np.ndarray]
 
 class Tensor:
@@ -75,6 +78,53 @@ class Tensor:
         for node in reversed(order):
             if node.grad_fn is not None:
                 node.grad_fn()
+
+    def clip(
+            self, 
+            min: float = MIN,
+            max: float = MAX,
+            clip_grad: bool = False,
+            grad_min: float = MIN,
+            grad_max: float = MAX
+    ) -> "Tensor":
+        
+        self.data = self.clip(self.data, min, max)
+
+        if clip_grad and self.grad is not None:
+            self.grad = self.clip(self.grad, grad_min, grad_max)
+
+    def __setitem__(self, indices, other):
+        "Update specific elements of one tensor (self) using another tensor (other)"
+        assert isinstance(other, Tensor)
+
+        self.data[indices] = other.data.astype(self.data.dtype).copy()
+
+        if self.grad is not None:
+            if other.grad is not None:
+                self.grad[indices] = other.grad.astype(self.grad.dtype).copy()
+            else:
+                self.grad[indices] = np.zeros_like(self.grad[indices])
+
+    def __getitem__(self, indices):
+        output = Tensor(
+            self.data[indices], dtype=self.dtype,
+            children= (self, ), op = "getitem",
+            requires_grad= self.requires_grad
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            def out_backward():
+                self.grad[indices] += output.grad
+            
+            output.backward = out_backward()
+            output.requires_grad = True
+        
+        return output
+    
+    def broadcast(self, shape: Tuple[int]) -> "Tensor":
+        data = self.broadcast(self.data, shape)
+        
+    
 
 
 
