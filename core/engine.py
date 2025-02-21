@@ -1,5 +1,6 @@
 import numpy as np
 from typing import *
+from utils import broadcast_axis
 
 MIN = 1e-6
 MAX = 1 - 1e-6
@@ -122,7 +123,21 @@ class Tensor:
         return output
     
     def broadcast(self, shape: Tuple[int]) -> "Tensor":
-        data = self.broadcast(self.data, shape)
+        data = np.broadcast_to(self.data, shape)
+        output = Tensor(
+            data, dtype=self.dtype, children=(self, ), op="broadcast"
+        )
+        broadcasted_axis = broadcast_axis(self.shape, shape)[0]
+
+        if self.requires_grad and self.grad_is_enabled:
+            def broadcast_backward():
+                self.grad += np.sum(output.grad, axis=broadcasted_axis)
+            
+            output.grad_fn = broadcast_backward
+            output.set_requires_grad(True)
+
+        return output
+
         
     
 
