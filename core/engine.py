@@ -50,6 +50,9 @@ class Tensor:
         
         self.requires_grad = val
 
+    def __repr__(self):
+        return f"Tensor(data={self.data}, requires_grad={self.requires_grad})"
+
     def backward(self) -> None:
         if not self.grad_is_enabled:
             raise ValueError("Gradient Calculation is diabled")
@@ -137,6 +140,123 @@ class Tensor:
             output.set_requires_grad(True)
 
         return output
+    
+    def sum(self, axis: Union[int, Tuple[int]] = None, keepdims: bool = False) -> "Tensor":
+        output = Tensor(
+            np.sum(self.data, axis=axis, keepdims=keepdims),
+            children=(self, ), op="sum"
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            #If keepdims=True, then the output keeps the same number of dimensions, and t_axis is set to None
+            #If axis is specified and keepdims=False, t_axis stores the axis to be used later
+            
+            t_axis = axis if axis and not keepdims else None
+            
+            def sum_backward():
+                if t_axis:
+                    self.grad += np.ones_like(self.grad) * np.expand_dims(
+                        output.grad, axis=t_axis
+                    )
+                else:
+                    self.grad += np.ones_like(self.grad) * output.grad
+            
+            output.grad_fn = sum_backward
+            output.set_requires_grad(True)
+
+        return output
+    
+
+    def mean(self, axis: int = None, keepdims: bool = False) -> "Tensor":
+        n = self.data.size
+        if isinstance(axis, int):
+            n = self.data.shape[axis]
+        if isinstance(axis, (tuple, list)):
+            n = 1
+            for dim in axis:
+                n *= self.data.shape[dim]
+        
+        output: Tensor = self.sum(axis=axis, keepdims=keepdims) / n
+        return output
+    
+    def T(self, axes: Iterable = None) -> "Tensor":
+        output = Tensor(
+            np.transpose(self.data, axes=axes),
+            children=(self, ), op='T'
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            def t_backward():
+                self.grad += np.transpose(output.grad, axes=axes)
+
+            output.grad_fn = t_backward
+            output.set_requires_grad(True)
+
+        return output
+    
+    def exp(self) -> "Tensor":
+        output = Tensor(
+            np.exp(self.data), children=(self, ), op='exp'
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            def exp_backward():
+                self.grad += output.data * output.grad
+
+            output.grad_fn = exp_backward
+            output.set_requires_grad(True)
+
+        return output
+    
+    def log(self) -> 'Tensor':
+        output = Tensor(
+            np.log(self.data), children=(self, ), op='log'
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            def log_backward():
+                self.grad += (output.grad / self.data)
+            
+            output.grad_fn = log_backward
+            output.set_requires_grad(True)
+
+        return output
+    
+    def reshape(self, shape: Tuple[int]) -> 'Tensor':
+        output = Tensor(
+            self.data.reshape(shape), children=(self, ), op='reshape'
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            def reshape_backward():
+                self.grad += np.reshape(output.grad, shape=self.data.shape)
+        
+            output.grad_fn = reshape_backward
+            output.set_requires_grad(True)
+        
+        return output
+    
+    def masked_fill(self, mask: Union[Array, list], value: Any) -> "Tensor":
+        assert isinstance(mask, Array) or isinstance(mask, list)
+        if isinstance(mask, list):
+            mask = np.array(mask, dtype=np.int8)
+
+        data = np.where(mask, np.array(value), self.data)
+        output = Tensor(
+            data, dtype=self.dtype, children=(self, ), op='mfill'
+        )
+
+        if self.requires_grad and self.grad_is_enabled:
+            def mfill_backward():
+                #Gradient of masked position made 0
+                self.grad += np.where(mask, np.array(0), output.grad)
+
+            output.grad_fn = mfill_backward
+            output.set_requires_grad(True)
+
+        return output
+    
+
 
         
     
