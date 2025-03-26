@@ -2,8 +2,8 @@ import numpy as np
 from typing import *
 from utils import broadcast_axis
 
-MIN = 1e-6
-MAX = 1 - 1e-6
+DEFAULT_MIN = 1e-6
+DEFAULT_MAX = 1 - 1e-6
 
 Array = Union[np.ndarray]
 
@@ -167,7 +167,7 @@ class Tensor:
         return output
     
 
-    def mean(self, axis: int = None, keepdims: bool = False) -> "Tensor":
+    def mean(self, axis: int = None, keepdims: bool = False) -> 'Tensor':
         n = self.data.size
         if isinstance(axis, int):
             n = self.data.shape[axis]
@@ -255,6 +255,40 @@ class Tensor:
             output.set_requires_grad(True)
 
         return output
+    
+    def concat(self, others: List["Tensor"], dim: Optional[int] = 0) -> "Tensor":
+        concat_list: List[Tensor] = [self]
+
+        for other in others:
+            assert isinstance(other, Tensor), f"Cannot concatenate type '{type(other)}'"
+            concat_list.append(other)
+
+        output = Tensor(
+            np.concatenate([c.data for c in concat_list], axis=dim),
+            children=tuple(concat_list), op='concat'
+        )
+
+        if self.grad_is_enabled:
+            sizes = [c.shape[dim] for c in concat_list]
+            sizes = np.array(sizes[:-1])
+            splits = np.cumsum(sizes).tolist()
+            if output.grad is None:
+                    output.grad = np.zeros_like(output.data)
+            grads = np.split(output.grad, splits, axis=dim)
+
+            def concat_backward():
+                for i, csor in enumerate(concat_list):
+                    if csor.requires_grad:
+                        csor.grad += grads[i]
+            output.grad_fn = concat_backward
+            output.set_requires_grad(True)
+        
+        return output
+    
+    def split(self, sections: int, dim: int = 0) -> List["Tensor"]:
+        data: List[Array] = np.split(self.data, sections, axis=dim)
+        
+
     
 
 
