@@ -1,6 +1,6 @@
 from typing import List, Union, Any
 
-from core import Tensor
+from engine import Tensor
 from ..nn import Module
 
 class Sequential(Module):
