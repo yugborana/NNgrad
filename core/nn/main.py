@@ -20,7 +20,7 @@ class Module:
     def eval(self) -> None:
         self.is_training = False
 
-    def parameterS(self) -> List[Tensor]:
+    def parameters(self) -> List[Tensor]:
         return (t for t in self._get_tensors if t.requires_grad)
     
     def zero_grad(self):
