@@ -85,11 +85,11 @@ class Tensor:
 
     def clip(
             self, 
-            min: float = MIN,
-            max: float = MAX,
+            min: float = DEFAULT_MIN,
+            max: float = DEFAULT_MAX,
             clip_grad: bool = False,
-            grad_min: float = MIN,
-            grad_max: float = MAX
+            grad_min: float = DEFAULT_MIN,
+            grad_max: float = DEFAULT_MAX
     ) -> "Tensor":
         
         self.data = self.clip(self.data, min, max)

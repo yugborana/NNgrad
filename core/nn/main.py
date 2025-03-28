@@ -1,5 +1,5 @@
 from typing import *
-from engine import Tensor 
+from ..engine import Tensor 
 
 class Module:
     def __init__(self,) -> None:

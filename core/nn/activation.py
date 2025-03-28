@@ -1,5 +1,5 @@
 from typing import *
-from engine import Tensor
+from core.engine import Tensor
 import numpy as np
 
 def relu(x: Tensor) -> Tensor:
@@ -46,4 +46,15 @@ def sigmoid(x: Tensor) -> Tensor:
         output.grad_fn = sigmoid_backward
         output.set_requires_grad(True)
 
+    return output
+
+def softmax(t: Tensor, axis: int = -1) -> Tensor:
+    max_t = Tensor(
+        np.max(t.data, axis=axis, keepdims=True),
+        dtype=t.dtype
+    )
+    shifted_t = np.exp((t - max_t))
+    shifted_exp_sum = np.sum(shifted_t)
+    output = shifted_t / shifted_exp_sum
+    
     return output
